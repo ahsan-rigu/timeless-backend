@@ -25,7 +25,7 @@ const productSchema = new mongoose.Schema({
   features: Array,
   quantity: Number,
   discount: Number,
-  estimatedDeliveryTime: String,
+  estimatedDeliveryTime: Number,
 });
 
 const Product = mongoose.model("Product", productSchema);
@@ -50,6 +50,16 @@ const hopepageSlideSchema = new mongoose.Schema({
 
 const HomepageSlide = mongoose.model("HomepageSlide", hopepageSlideSchema);
 
+const NavDataSchema = new mongoose.Schema({
+  gender: String,
+  title: String,
+  description: String,
+  image: String,
+  categories: Array,
+});
+
+const NavData = mongoose.model("NavData", NavDataSchema);
+
 const UserSchema = mongoose.Schema(
   {
     name: { type: String, required: true },
@@ -67,6 +77,38 @@ const User = mongoose.model("User", UserSchema);
 
 app.listen(8080, () => {
   console.log("Listening on port 8080 as well");
+});
+
+app.get("/nav-data", async (req, res) => {
+  try {
+    const navData = await NavData.find({});
+
+    res.status(200).send({
+      navData,
+    });
+  } catch (error) {
+    res.status(404).send(error);
+  }
+});
+
+app.get("/products", async (req, res) => {
+  try {
+    const products = await Product.find({});
+    res.send({
+      products,
+    });
+  } catch (error) {}
+});
+
+app.get("/featured", async (req, res) => {
+  try {
+    const featuredData = await HomepageGrid.find({});
+    res.send({
+      featuredData,
+    });
+  } catch (error) {
+    console.log(error);
+  }
 });
 
 app.get("/sitedata", async (req, res) => {
@@ -96,6 +138,86 @@ const getUserById = async (_id) => {
   }
 };
 
+app.get("/authorize-token", async (req, res) => {
+  console.log("asdasd");
+  if (req.headers.authorization) {
+    const token = req.headers.authorization.split("Bearer ")[1];
+    jwt.verify(token, process.env.JWT_KEY, async (error, decodedToken) => {
+      if (!error) {
+        if (decodedToken !== undefined) {
+          try {
+            const user = await User.findOne({ _id: decodedToken.id });
+            res.sendStatus(200);
+          } catch (error) {
+            res.status(401).send({ message: "Token validiation error" });
+          }
+        } else {
+          res.status(401).send({ message: "Token validiation error" });
+        }
+      } else {
+        if (jwt.TokenExpiredError) {
+          res.status(401).send({ message: "Token Expired" });
+        } else {
+          res.status(401).send({ message: "Invalid Token" });
+        }
+      }
+    });
+  } else {
+    res.send({ status: 401, message: "No Token" });
+  }
+});
+
+app.post("/sign-in", bodyParser.json(), async (req, res) => {
+  console.log(req.body);
+  const { email, password } = req.body;
+  try {
+    const user = await User.findOne({ email, password });
+    jwt.sign(
+      { id: user._id, email: user.email },
+      process.env.JWT_KEY,
+      { expiresIn: "1h" },
+      (error, token) => {
+        if (error) {
+          console.log(error);
+          res.status(500).send({ message: "Token Generation Failed" });
+        } else {
+          res.status(200).send({ message: "Logged In", token });
+        }
+      }
+    );
+  } catch (error) {
+    console.log(error);
+    res.status(401).send({ message: "email and password dont match" });
+  }
+});
+
+app.get("/fetch-user", async (req, res) => {
+  if (req.headers.authorization) {
+    const token = req.headers.authorization.split("Bearer ")[1];
+    jwt.verify(token, process.env.JWT_KEY, async (error, decodedToken) => {
+      if (!error) {
+        if (decodedToken !== undefined) {
+          try {
+            const user = await User.findOne({ _id: decodedToken.id });
+            res.status(200).send({ user });
+          } catch (error) {
+            res.status(401).send({ message: "Token validiation error" });
+          }
+        } else {
+          res.status(401).send({ message: "Token validiation error" });
+        }
+      } else {
+        if (jwt.TokenExpiredError) {
+          res.status(401).send({ message: "Token Expired" });
+        } else {
+          res.status(401).send({ message: "Invalid Token" });
+        }
+      }
+    });
+  } else {
+    res.send({ status: 401, message: "No Token" });
+  }
+});
 app.get("/authorize", async (req, res) => {
   if (req.headers.authorization) {
     const token = req.headers.authorization.split("Bearer ")[1];
@@ -174,10 +296,36 @@ app.post("/register", bodyParser.json(), async (req, res) => {
   }
 });
 
-app.post("/deleteUser", bodyParser.json(), async (req, res) => {
-  const { _id } = req.body;
+app.post("/sign-up", bodyParser.json(), async (req, res) => {
+  const {
+    name,
+    email,
+    password,
+    wishlistItems,
+    cartItems,
+    addresses,
+    preferences,
+  } = req.body;
   try {
-    await User.deleteOne({ _id });
+    await User.create({
+      name,
+      email,
+      password,
+      wishlistItems,
+      cartItems,
+      addresses,
+      preferences,
+    });
+    res.sendStatus(201);
+  } catch (error) {
+    res.send(error);
+  }
+});
+
+app.post("/deleteUser", bodyParser.json(), async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    await User.deleteOne({ email, password });
     res.status(202);
   } catch (error) {
     res.send(error);
@@ -185,13 +333,18 @@ app.post("/deleteUser", bodyParser.json(), async (req, res) => {
 });
 
 app.post("/updateUser", bodyParser.json(), async (req, res) => {
-  const { _id, wishlistItems, cartItems } = req.body;
+  const { _id, wishlistItems, cartItems, addresses } = req.body;
   try {
-    await User.updateOne({ _id }, { wishlistItems, cartItems });
+    await User.updateOne({ _id }, { wishlistItems, cartItems, addresses });
     res.sendStatus(202);
   } catch (error) {
     res.send(error);
   }
+});
+
+app.get("*", async (req, res) => {
+  console.log("someone trying to access");
+  res.send("HELLO YOUR REQUEST HAS BEEN HEARD");
 });
 
 app.use("*", (req, res) => {
