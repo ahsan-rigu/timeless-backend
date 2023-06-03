@@ -307,7 +307,6 @@ const authorizedEmails = [
 
 app.post("/review", bodyParser.json(), async (req, res) => {
   const { _id, email, name, rating, review } = req.body;
-  console.log(req.body);
   try {
     //isreviewed true??
     if (authorizedEmails.includes(email)) {
@@ -316,19 +315,23 @@ app.post("/review", bodyParser.json(), async (req, res) => {
         { $push: { reviews: { email, name, rating, review } } }
       );
     } else {
-      name = "Timeless User";
-      let censoredEmail = "";
+      newName = "Timeless User";
+      let censoredReview = "";
       for (let i = 0; i < review.length; i++) {
         if (review[i] !== " ") {
-          censoredEmail += "*";
+          censoredReview += "*";
         } else {
-          censoredEmail += " ";
+          censoredReview += " ";
         }
       }
 
       const res = await Product.updateOne(
         { _id },
-        { $push: { reviews: { email, name, rating, review } } }
+        {
+          $push: {
+            reviews: { email, name: newName, rating, review: censoredReview },
+          },
+        }
       );
     }
     res.sendStatus(202);
