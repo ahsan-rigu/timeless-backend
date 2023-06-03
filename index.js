@@ -315,6 +315,21 @@ app.post("/review", bodyParser.json(), async (req, res) => {
         { _id },
         { $push: { reviews: { email, name, rating, review } } }
       );
+    } else {
+      name = "Timeless User";
+      let censoredEmail = "";
+      for (let i = 0; i < review.length; i++) {
+        if (review[i] !== " ") {
+          censoredEmail += "*";
+        } else {
+          censoredEmail += " ";
+        }
+      }
+
+      const res = await Product.updateOne(
+        { _id },
+        { $push: { reviews: { email, name, rating, review } } }
+      );
     }
     res.sendStatus(202);
   } catch (error) {
@@ -337,11 +352,11 @@ app.post("/placeOrder", bodyParser.json(), async (req, res) => {
         );
       }
     } catch {
-      res.status(401).send({ message: "Email Already Exists" });
+      res.status(401).send({ message: "Cant Place Order" });
     }
     res.sendStatus(202);
   } catch (error) {
-    res.status(401).send({ message: "Email Already Exists" });
+    res.status(401).send({ message: "Cant Place Order" });
   }
 });
 
