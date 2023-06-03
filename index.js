@@ -100,7 +100,9 @@ app.get("/products", async (req, res) => {
     res.send({
       products,
     });
-  } catch (error) {}
+  } catch (error) {
+    res.status(404).send(error);
+  }
 });
 
 app.get("/featured", async (req, res) => {
@@ -110,7 +112,7 @@ app.get("/featured", async (req, res) => {
       featuredData,
     });
   } catch (error) {
-    console.log(error);
+    res.status(404).send(error);
   }
 });
 
@@ -120,12 +122,12 @@ const getUserById = async (_id) => {
     const stringID = User._id.toString();
     return stringID;
   } catch {
-    //user not found...
+    res.status(404).send(error);
   }
 };
 
 app.get("/authorize-token", async (req, res) => {
-  console.log("asdasd");
+  console.log("initialized auth verification");
   if (req.headers.authorization) {
     const token = req.headers.authorization.split("Bearer ")[1];
     jwt.verify(token, process.env.JWT_KEY, async (error, decodedToken) => {
@@ -149,12 +151,11 @@ app.get("/authorize-token", async (req, res) => {
       }
     });
   } else {
-    res.send({ status: 401, message: "No Token" });
+    res.status(401).send({ message: "No Token" });
   }
 });
 
 app.post("/sign-in", bodyParser.json(), async (req, res) => {
-  console.log(req.body);
   const { email, password } = req.body;
   try {
     const user = await User.findOne({ email, password });
@@ -255,7 +256,7 @@ app.post("/sign-up", bodyParser.json(), async (req, res) => {
     });
     res.sendStatus(201);
   } catch (error) {
-    res.send(error);
+    res.status(401).send({ message: "No Token" });
   }
 });
 
@@ -266,7 +267,7 @@ app.post("/deleteUser", bodyParser.json(), async (req, res) => {
     await User.deleteOne({ email, password });
     res.sendStatus(202);
   } catch (error) {
-    res.send(error);
+    res.sendStatus(401);
   }
 });
 
@@ -276,7 +277,7 @@ app.post("/changePassword", bodyParser.json(), async (req, res) => {
     await User.updateOne({ email, password }, { password: newPassword });
     res.sendStatus(202);
   } catch (error) {
-    res.send(error);
+    res.status(401).send(error);
   }
 });
 
@@ -290,7 +291,7 @@ app.post("/updateUser", bodyParser.json(), async (req, res) => {
     );
     res.sendStatus(202);
   } catch (error) {
-    res.send(error);
+    res.status(401).send(error);
   }
 });
 
