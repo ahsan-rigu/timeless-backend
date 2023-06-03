@@ -261,20 +261,25 @@ app.post("/sign-up", bodyParser.json(), async (req, res) => {
 
 app.post("/deleteUser", bodyParser.json(), async (req, res) => {
   const { email, password } = req.body;
-  console.log(email, password, "heoolo");
+
   try {
-    await User.deleteOne({ email, password });
-    res.sendStatus(202);
+    const { deletedCount } = await User.deleteOne({ email, password });
+    if (deletedCount) res.sendStatus(202);
+    else res.status(401).send({ message: "Incorrect password" });
   } catch (error) {
-    res.status(401).send({ message: "Email Already Exists" });
+    res.status(401).send({ message: "Error" });
   }
 });
 
 app.post("/changePassword", bodyParser.json(), async (req, res) => {
   const { email, password, newPassword } = req.body;
   try {
-    await User.updateOne({ email, password }, { password: newPassword });
-    res.sendStatus(202);
+    const { modifiedCount } = await User.updateOne(
+      { email, password },
+      { password: newPassword }
+    );
+    if (modifiedCount) res.sendStatus(202);
+    else res.status(401).send("Invalid Password");
   } catch (error) {
     res.status(401).send(error);
   }
@@ -294,7 +299,7 @@ app.post("/updateUser", bodyParser.json(), async (req, res) => {
   }
 });
 
-const authorizedEmails = ["ahsanrigu@icloud.com"];
+const authorizedEmails = ["ahsanrigu@icloud.com", "user@mail.com"];
 
 app.post("/review", bodyParser.json(), async (req, res) => {
   const { _id, email, name, rating, review } = req.body;
