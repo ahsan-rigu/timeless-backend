@@ -299,7 +299,11 @@ app.post("/updateUser", bodyParser.json(), async (req, res) => {
   }
 });
 
-const authorizedEmails = ["ahsanrigu@icloud.com", "user@mail.com"];
+const authorizedEmails = [
+  "ahsanrigu@icloud.com",
+  "user@mail.com",
+  "jatin@gmail.com",
+];
 
 app.post("/review", bodyParser.json(), async (req, res) => {
   const { _id, email, name, rating, review } = req.body;
