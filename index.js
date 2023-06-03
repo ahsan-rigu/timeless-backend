@@ -173,7 +173,6 @@ app.post("/sign-in", bodyParser.json(), async (req, res) => {
       }
     );
   } catch (error) {
-    console.log(error);
     res.status(401).send({ message: "email and password dont match" });
   }
 });
@@ -202,7 +201,7 @@ app.get("/fetch-user", async (req, res) => {
       }
     });
   } else {
-    res.send({ status: 401, message: "No Token" });
+    res.status(401).send({ message: "Cant Fetch User" });
   }
 });
 
@@ -230,7 +229,7 @@ app.get("/authorize", async (req, res) => {
       }
     });
   } else {
-    res.send({ status: 401, message: "No Token" });
+    res.status(401).send({ message: "No token" });
   }
 });
 
@@ -256,7 +255,7 @@ app.post("/sign-up", bodyParser.json(), async (req, res) => {
     });
     res.sendStatus(201);
   } catch (error) {
-    res.status(401).send({ message: "No Token" });
+    res.status(401).send({ message: "Email Already Exists" });
   }
 });
 
@@ -267,7 +266,7 @@ app.post("/deleteUser", bodyParser.json(), async (req, res) => {
     await User.deleteOne({ email, password });
     res.sendStatus(202);
   } catch (error) {
-    res.sendStatus(401);
+    res.status(401).send({ message: "Email Already Exists" });
   }
 });
 
@@ -310,7 +309,7 @@ app.post("/review", bodyParser.json(), async (req, res) => {
     }
     res.sendStatus(202);
   } catch (error) {
-    res.send(error);
+    res.status(401).send({ message: "Email Already Exists" });
   }
 });
 
@@ -329,12 +328,11 @@ app.post("/placeOrder", bodyParser.json(), async (req, res) => {
         );
       }
     } catch {
-      //if updation call fails i dont care
-      res.sendStatus(202);
+      res.status(401).send({ message: "Email Already Exists" });
     }
     res.sendStatus(202);
   } catch (error) {
-    res.send(error);
+    res.status(401).send({ message: "Email Already Exists" });
   }
 });
 
