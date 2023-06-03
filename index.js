@@ -315,7 +315,8 @@ app.post("/review", bodyParser.json(), async (req, res) => {
         { $push: { reviews: { email, name, rating, review } } }
       );
     } else {
-      newName = "Timeless User";
+      const newName = "Timeless User";
+
       let censoredReview = "";
       for (let i = 0; i < review.length; i++) {
         if (review[i] !== " ") {
@@ -324,7 +325,6 @@ app.post("/review", bodyParser.json(), async (req, res) => {
           censoredReview += " ";
         }
       }
-
       const res = await Product.updateOne(
         { _id },
         {
