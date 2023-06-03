@@ -1,5 +1,6 @@
 const express = require("express");
 const dotenv = require("dotenv");
+const Razorpay = require("razorpay");
 let cors = require("cors");
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
@@ -26,6 +27,7 @@ const productSchema = new mongoose.Schema({
   quantity: Number,
   discount: Number,
   estimatedDeliveryTime: Number,
+  reviews: Array,
 });
 
 const Product = mongoose.model("Product", productSchema);
@@ -69,6 +71,7 @@ const UserSchema = mongoose.Schema(
     cartItems: Array,
     addresses: Array,
     preferences: Object,
+    orders: Array,
   },
   { timestamps: true }
 );
@@ -108,23 +111,6 @@ app.get("/featured", async (req, res) => {
     });
   } catch (error) {
     console.log(error);
-  }
-});
-
-app.get("/sitedata", async (req, res) => {
-  try {
-    const products = await Product.find({});
-    const homepageGrids = await HomepageGrid.find({});
-    const homepageSlides = await HomepageSlide.find({});
-
-    res.status(200).send({
-      status: 200,
-      message: "Data Fetched Successfully",
-      data: { products, homepageGrids, homepageSlides },
-    });
-  } catch (error) {
-    console.log("lalal");
-    res.send(error);
   }
 });
 
@@ -218,6 +204,7 @@ app.get("/fetch-user", async (req, res) => {
     res.send({ status: 401, message: "No Token" });
   }
 });
+
 app.get("/authorize", async (req, res) => {
   if (req.headers.authorization) {
     const token = req.headers.authorization.split("Bearer ")[1];
@@ -243,56 +230,6 @@ app.get("/authorize", async (req, res) => {
     });
   } else {
     res.send({ status: 401, message: "No Token" });
-  }
-});
-
-app.post("/authenticate", bodyParser.json(), async (req, res) => {
-  console.log(req.body);
-  const { email, password } = req.body;
-  try {
-    const user = await User.findOne({ email, password });
-    jwt.sign(
-      { id: user._id, email: user.email },
-      process.env.JWT_KEY,
-      { expiresIn: "1h" },
-      (error, token) => {
-        if (error) {
-          console.log(error);
-          res.status(500).send({ message: "Token Generation Failed" });
-        } else {
-          res.status(200).send({ message: "Logged In", token, user });
-        }
-      }
-    );
-  } catch (error) {
-    console.log(error);
-    res.status(401).send({ message: "email and password dont match" });
-  }
-});
-
-app.post("/register", bodyParser.json(), async (req, res) => {
-  const {
-    name,
-    email,
-    password,
-    wishlistItems,
-    cartItems,
-    addresses,
-    preferences,
-  } = req.body;
-  try {
-    await User.create({
-      name,
-      email,
-      password,
-      wishlistItems,
-      cartItems,
-      addresses,
-      preferences,
-    });
-    res.sendStatus(201);
-  } catch (error) {
-    res.send(error);
   }
 });
 
@@ -324,21 +261,129 @@ app.post("/sign-up", bodyParser.json(), async (req, res) => {
 
 app.post("/deleteUser", bodyParser.json(), async (req, res) => {
   const { email, password } = req.body;
+  console.log(email, password, "heoolo");
   try {
     await User.deleteOne({ email, password });
-    res.status(202);
+    res.sendStatus(202);
+  } catch (error) {
+    res.send(error);
+  }
+});
+
+app.post("/changePassword", bodyParser.json(), async (req, res) => {
+  const { email, password, newPassword } = req.body;
+  try {
+    await User.updateOne({ email, password }, { password: newPassword });
+    res.sendStatus(202);
   } catch (error) {
     res.send(error);
   }
 });
 
 app.post("/updateUser", bodyParser.json(), async (req, res) => {
-  const { _id, wishlistItems, cartItems, addresses } = req.body;
+  const { _id, wishlistItems, cartItems, addresses, orders } = req.body;
+  console.log("user Update");
   try {
-    await User.updateOne({ _id }, { wishlistItems, cartItems, addresses });
+    await User.updateOne(
+      { _id },
+      { wishlistItems, cartItems, addresses, orders }
+    );
     res.sendStatus(202);
   } catch (error) {
     res.send(error);
+  }
+});
+
+const authorizedEmails = ["ahsanrigu@icloud.com"];
+
+app.post("/review", bodyParser.json(), async (req, res) => {
+  const { _id, email, name, rating, review } = req.body;
+  console.log(req.body);
+  try {
+    //isreviewed true??
+    if (authorizedEmails.includes(email)) {
+      const res = await Product.updateOne(
+        { _id },
+        { $push: { reviews: { email, name, rating, review } } }
+      );
+    }
+    res.sendStatus(202);
+  } catch (error) {
+    res.send(error);
+  }
+});
+
+app.post("/placeOrder", bodyParser.json(), async (req, res) => {
+  const { email, order } = req.body;
+  try {
+    const user = await User.updateOne({ email }, { $push: { orders: order } });
+    const user2 = await User.updateOne({ email }, { cartItems: [] });
+    try {
+      for (product of order) {
+        const { quantity } = await Product.findOne({ _id: product._id });
+        if (quantity - product.quantity < 0) quantity = product.quantity;
+        const res = await Product.updateOne(
+          { _id: product._id },
+          { quantity: quantity - product.quantity }
+        );
+      }
+    } catch {
+      //if updation call fails i dont care
+      res.sendStatus(202);
+    }
+    res.sendStatus(202);
+  } catch (error) {
+    res.send(error);
+  }
+});
+
+//razerpay
+
+const paymentSchema = new mongoose.Schema({
+  razorpay_order_id: {
+    type: String,
+    required: true,
+  },
+  razorpay_payment_id: {
+    type: String,
+    required: true,
+  },
+  razorpay_signature: {
+    type: String,
+    required: true,
+  },
+});
+
+const Payment = mongoose.model("Payment", paymentSchema);
+
+const instance = new Razorpay({
+  key_id: process.env.RZPAY_KEY,
+  key_secret: process.env.RZPAY_SECRET,
+});
+
+app.post("/verifyPayment", bodyParser.json(), async (req, res) => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
+    req.body;
+
+  const body = razorpay_order_id + "|" + razorpay_payment_id;
+
+  const expectedSignature = crypto
+    .createHmac("sha256", process.env.RZPAY_SECRET)
+    .update(body.toString())
+    .digest("hex");
+
+  const isAuthentic = expectedSignature === razorpay_signature;
+  if (isAuthentic) {
+    await Payment.create({
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    });
+    res.sendStatus(200);
+  } else {
+    res.status(400).json({
+      success: false,
+    });
   }
 });
 
